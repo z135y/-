@@ -3,68 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCA x TAGs 風味評鑑系統 v2.0</title>
-    <!-- 引入必要的庫 -->
+    <title>SCA x TAGs 風味評鑑系統 v2.1</title>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* 基礎樣式 */
-        body { font-family: "Helvetica Neue", Arial, sans-serif; background: #f4f4f4; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 600px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1 { color: #2c3e50; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        /* --- 基礎設定 --- */
+        body { font-family: "Helvetica Neue", "Microsoft JhengHei", Arial, sans-serif; background: #f0f2f5; padding: 20px; display: flex; flex-direction: column; align-items: center; color: #333; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h1 { color: #2c3e50; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-top: 0; }
         
-        /* 表單樣式 */
+        /* --- 表單元件 --- */
         .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #34495e; }
-        input[type="text"], input[type="email"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #2c3e50; font-size: 15px; }
+        input[type="text"], input[type="email"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 15px; transition: 0.3s; }
+        input:focus { border-color: #27ae60; outline: none; }
         
-        /* 評分滑桿區 */
-        .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .score-item label { font-size: 14px; display: flex; justify-content: space-between; }
-        .score-val { color: #e67e22; font-weight: bold; }
-        input[type="range"] { width: 100%; }
+        /* --- 6軸評分區 (Grid Layout) --- */
+        .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; }
+        .score-item label { font-size: 14px; display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .score-val { color: #27ae60; font-weight: bold; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #27ae60; }
 
-        /* 按鈕 */
-        .btn-submit { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-submit:hover { background: #219150; }
-        .btn-submit:disabled { background: #ccc; cursor: wait; }
+        /* --- 標籤雲 (Tag Cloud) --- */
+        .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tag-btn { 
+            padding: 8px 15px; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; 
+            font-size: 13px; background: white; transition: 0.2s; user-select: none; color: #666;
+        }
+        .tag-btn:hover { background: #f0f0f0; }
+        .tag-btn.active { background: #27ae60; color: white; border-color: #27ae60; font-weight: bold; box-shadow: 0 2px 5px rgba(39, 174, 96, 0.3); }
+        .tag-hint { font-size: 12px; color: #e74c3c; margin-top: 5px; min-height: 18px; }
 
-        /* --- B2C 卡片樣式 (隱藏生成區) --- */
-        /* 使用 absolute positioning 移出視窗外，但保持渲染狀態供 html2canvas 截圖 */
+        /* --- 按鈕 --- */
+        .btn-submit { width: 100%; padding: 15px; background: #2c3e50; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; letter-spacing: 1px; }
+        .btn-submit:hover { background: #34495e; transform: translateY(-2px); }
+        .btn-submit:disabled { background: #95a5a6; cursor: not-allowed; transform: none; }
+        .status-msg { text-align: center; margin-top: 15px; color: #27ae60; font-weight: bold; font-size: 14px; }
+
+        /* --- B2C 精品證書樣式 (隱藏生成區) --- */
         #b2c-render-area { 
             position: absolute; left: -9999px; top: 0; 
-            width: 400px; height: 500px; /* 4:5 比例 */
-            background: #fff;
-            font-family: 'Microsoft JhengHei', sans-serif;
-            border: 1px solid #ddd; /* 截圖時不會有邊框，因為我們會截內容 */
+            width: 450px; height: 560px; /* 4:5 比例 */
         }
         
-        /* B2C 卡片設計 (Poster Style) */
-        .b2c-card {
+        .certificate-card {
             width: 100%; height: 100%;
-            background: linear-gradient(135deg, #ffffff 0%, #f3f3f3 100%);
+            /* 仿紙質感底色 */
+            background-color: #fdfbf7;
+            background-image: url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4af37' fill-opacity='0.05' fill-rule='evenodd'%3E%3Cpath d='M5 0h1v1H5zM0 5h1v1H0z'/%3E%3C/g%3E%3C/svg%3E");
             display: flex; flex-direction: column;
             padding: 25px; box-sizing: border-box;
             position: relative;
-            color: #333;
+            color: #1a1a1a;
+            /* 雙重金框 */
+            border: 8px double #d4af37; 
+            box-shadow: inset 0 0 30px rgba(212, 175, 55, 0.1);
         }
-        .b2c-header { text-align: center; margin-bottom: 10px; }
-        .b2c-product { font-size: 24px; font-weight: 900; color: #000; letter-spacing: 1px; margin-bottom: 5px; border-bottom: 3px solid #000; display: inline-block; padding-bottom: 5px; }
-        .b2c-tags { font-size: 14px; color: #e67e22; font-weight: bold; margin-top: 5px; }
-        
-        .b2c-chart-container { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
-        
-        .b2c-footer { text-align: center; font-size: 12px; color: #888; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
-        .b2c-slogan { font-weight: bold; color: #2c3e50; font-size: 14px; margin-bottom: 3px; }
 
-        .status-msg { text-align: center; margin-top: 10px; color: #e74c3c; font-weight: bold; display: none; }
+        .cert-header { text-align: center; margin-bottom: 5px; margin-top: 10px; }
+        .cert-brand { font-size: 10px; letter-spacing: 3px; color: #d4af37; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
+        .cert-product { font-family: 'Times New Roman', serif; font-size: 26px; font-weight: bold; color: #2c3e50; letter-spacing: 1px; border-bottom: 1px solid #d4af37; display: inline-block; padding-bottom: 8px; margin-bottom: 5px; }
+        
+        .cert-tags { 
+            text-align: center; font-size: 13px; color: #d35400; font-weight: bold; 
+            margin-bottom: 10px; letter-spacing: 1px;
+        }
+
+        .cert-chart-container { 
+            flex: 1; position: relative; display: flex; justify-content: center; align-items: center; 
+            background: rgba(255,255,255,0.4); border-radius: 50%;
+            margin: 10px 20px;
+        }
+        
+        .cert-footer { text-align: center; font-size: 11px; color: #888; margin-top: 5px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 12px; }
+        .cert-slogan { font-family: 'Times New Roman', serif; font-style: italic; color: #2c3e50; font-size: 14px; margin-bottom: 3px; font-weight: bold; }
+        
+        .watermark {
+            position: absolute; bottom: 10px; right: 10px; opacity: 0.1;
+            font-size: 50px; font-weight: bold; color: #d4af37; pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
     <!-- 1. 輸入介面 (SCA 專業版) -->
     <div class="container" id="pro-form-area">
-        <h1>☕ SCA x TAGs 專業評鑑</h1>
+        <h1>☕ SCA x TAGs 風味評鑑</h1>
         
         <div class="form-group">
             <label>評鑑者 (Evaluator)</label>
@@ -79,23 +103,15 @@
             <input type="text" id="productName" value="特選紅烏龍 (批號2025-A)">
         </div>
 
-        <!-- 6 軸評分 (1.0 - 5.0) -->
-        <label>SCA 評分 (1.0 - 5.0)</label>
+        <!-- 6 軸評分 (精簡版) -->
+        <label>SCA 評分參數 (1.0 - 5.0)</label>
         <div class="score-grid">
             <div class="score-item">
-                <label>Aroma (乾/濕香) <span class="score-val" id="val-aroma">3.0</span></label>
+                <label>Aroma (香氣) <span class="score-val" id="val-aroma">3.0</span></label>
                 <input type="range" id="aroma" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
             </div>
             <div class="score-item">
-                <label>Flavor (風味) <span class="score-val" id="val-flavor">3.0</span></label>
-                <input type="range" id="flavor" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
-            </div>
-            <div class="score-item">
-                <label>Aftertaste (餘韻) <span class="score-val" id="val-aftertaste">3.0</span></label>
-                <input type="range" id="aftertaste" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
-            </div>
-            <div class="score-item">
-                <label>Acidity (酸質) <span class="score-val" id="val-acidity">3.0</span></label>
+                <label>Acidity (酸質/明亮) <span class="score-val" id="val-acidity">3.0</span></label>
                 <input type="range" id="acidity" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
             </div>
             <div class="score-item">
@@ -103,112 +119,151 @@
                 <input type="range" id="body" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
             </div>
             <div class="score-item">
-                <label>Balance (平衡) <span class="score-val" id="val-balance">3.0</span></label>
+                <label>Balance (平衡度) <span class="score-val" id="val-balance">3.0</span></label>
                 <input type="range" id="balance" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
             </div>
-            <!-- Structure 在原 SCA 表中通常整合在 Flavor 或 Body，這裡為了配合 B2C 公式，我們增加一個隱藏參數或讓用戶輸入，假設為了演示，我們增加 Structure 欄位 -->
-             <div class="score-item" style="grid-column: 1 / -1; border-top:1px dashed #ccc; padding-top:10px;">
-                <label>Structure (結構感 - 供B2C運算用) <span class="score-val" id="val-structure">3.0</span></label>
-                <input type="range" id="structure" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
-            </div>
-            <div class="score-item" style="grid-column: 1 / -1;">
-                <label>Sweetness (甜度 - 供B2C運算用) <span class="score-val" id="val-sweetness">3.0</span></label>
+            <div class="score-item">
+                <label>Sweetness (甜感) <span class="score-val" id="val-sweetness">3.0</span></label>
                 <input type="range" id="sweetness" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
             </div>
+            <div class="score-item">
+                <label>Structure (結構感) <span class="score-val" id="val-structure">3.0</span></label>
+                <input type="range" id="structure" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
         </div>
 
+        <!-- 標籤雲 (Tag Cloud) -->
         <div class="form-group">
-            <label>風味聯想 (TAGs) - 請用逗號分隔，系統將抓取前 3 個</label>
-            <input type="text" id="tags" value="🍯 蜂蜜, 🍎 熟果, 🪵 檜木, 🌼 野薑花" placeholder="例如: 花香, 蜂蜜, 堅果">
+            <label>風味標籤 (點選最多 3 項)</label>
+            <div class="tag-cloud" id="tagCloudContainer">
+                <!-- JS 自動生成按鈕 -->
+            </div>
+            <div class="tag-hint" id="tagHint"></div>
         </div>
 
-        <button class="btn-submit" id="btnSubmit" onclick="processEvaluation()">📤 上傳資料並寄送雙版本圖卡</button>
+        <button class="btn-submit" id="btnSubmit" onclick="processEvaluation()">📤 上傳並生成證書</button>
         <div id="statusMsg" class="status-msg"></div>
     </div>
 
-    <!-- 2. B2C 卡片生成區 (隱藏) -->
+    <!-- 2. B2C 證書生成區 (隱藏) -->
     <div id="b2c-render-area">
-        <div class="b2c-card" id="b2cCard">
-            <div class="b2c-header">
-                <div class="b2c-product" id="b2c-name-display">PRODUCT NAME</div>
-                <div class="b2c-tags" id="b2c-tags-display">TAG 1 | TAG 2 | TAG 3</div>
+        <div class="certificate-card" id="b2cCard">
+            <div class="cert-header">
+                <div class="cert-brand">SCA x TAGs Certified</div>
+                <div class="cert-product" id="b2c-name-display">Product Name</div>
             </div>
-            <div class="b2c-chart-container">
+            
+            <div class="cert-tags" id="b2c-tags-display">TAG 1 · TAG 2 · TAG 3</div>
+
+            <div class="cert-chart-container">
                 <canvas id="b2cChart"></canvas>
             </div>
-            <div class="b2c-footer">
-                <div class="b2c-slogan">數據化呈現，風味看得見</div>
-                <div>Powered by SCA x TAGs System</div>
+            
+            <div class="watermark">SCA</div>
+            
+            <div class="cert-footer">
+                <div class="cert-slogan">數據化呈現，風味看得見</div>
+                <div>Flavor Analysis Certificate</div>
             </div>
         </div>
     </div>
 
 <script>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby_VjYnVJIzdtU50nzgVWBAWP4nikCLAPnnrQnd2TH6AHe3iEfe4sUki5MCOzBQZUZy/exec"; // ⚠️ 請填入後端網址
+    // ⚠️ 請務必確認此處填入的是「後端」部署後的網址 (/exec 結尾)
+    const GOOGLE_SCRIPT_URL = "您的_GOOGLE_SCRIPT_URL"; 
+
+    // 1. 初始化標籤系統
+    const PRESET_TAGS = [
+        "🍯 蜂蜜", "🍎 熟果", "🌼 野薑花", "🪵 檜木", "🍫 黑巧克力", 
+        "🥜 堅果", "🍋 柑橘", "🍑 水蜜桃", "🌿 薄荷", "🥛 奶油",
+        "🌹 玫瑰", "🍇 葡萄", "🍞 烤吐司", "🍂 煙燻", "🧂 海鹽",
+        "🌱 青草", "🍓 莓果", "🍬 焦糖", "🍵 抹茶", "🥭 芒果"
+    ];
+    let selectedTags = [];
+
+    window.onload = () => {
+        const container = document.getElementById('tagCloudContainer');
+        PRESET_TAGS.forEach(tag => {
+            const btn = document.createElement('div');
+            btn.className = 'tag-btn';
+            btn.innerText = tag;
+            btn.onclick = () => toggleTag(btn, tag);
+            container.appendChild(btn);
+        });
+    };
+
+    function toggleTag(btn, tag) {
+        const hint = document.getElementById('tagHint');
+        
+        if (selectedTags.includes(tag)) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+            btn.classList.remove('active');
+        } else {
+            if (selectedTags.length >= 3) {
+                hint.innerText = "⚠️ 最多只能選擇 3 個主要風味！";
+                setTimeout(() => hint.innerText = "", 2000);
+                return;
+            }
+            selectedTags.push(tag);
+            btn.classList.add('active');
+        }
+    }
 
     function updateVal(input) {
         document.getElementById('val-' + input.id).innerText = input.value;
     }
 
+    // 2. 核心處理流程
     async function processEvaluation() {
         const btn = document.getElementById('btnSubmit');
         const msg = document.getElementById('statusMsg');
         
-        // 0. 基礎驗證
+        // 驗證
         const email = document.getElementById('email').value;
         const name = document.getElementById('productName').value;
         if(!email || !name) { alert("請填寫 Email 與 品名"); return; }
+        if(selectedTags.length === 0) { alert("請至少選擇 1 個風味標籤"); return; }
+
+        if(GOOGLE_SCRIPT_URL.includes("您的")) { 
+            alert("請先在 HTML 代碼中填入您的 Script 網址！"); 
+            return; 
+        }
 
         btn.disabled = true;
-        btn.innerText = "🔄 正在進行 B2C 轉譯運算...";
-        msg.style.display = 'block';
-        msg.innerText = "1. 讀取專業數據...";
+        btn.innerText = "Processing...";
+        msg.innerText = "1. 轉譯 B2C 數據...";
 
-        // 1. 取得原始分數
+        // 取得分數 (精簡版 6 軸)
         const scores = {
             aroma: parseFloat(document.getElementById('aroma').value),
-            flavor: parseFloat(document.getElementById('flavor').value),
-            aftertaste: parseFloat(document.getElementById('aftertaste').value),
             acidity: parseFloat(document.getElementById('acidity').value),
             body: parseFloat(document.getElementById('body').value),
             balance: parseFloat(document.getElementById('balance').value),
-            structure: parseFloat(document.getElementById('structure').value),
-            sweetness: parseFloat(document.getElementById('sweetness').value)
+            sweetness: parseFloat(document.getElementById('sweetness').value),
+            structure: parseFloat(document.getElementById('structure').value)
         };
 
-        // 2. 執行 B2C 轉譯邏輯 (Translation Logic)
-        msg.innerText = "2. 生成 B2C 風味識別卡...";
+        // 執行轉譯
         const b2cData = calculateB2C(scores);
-        renderB2CView(name, document.getElementById('tags').value, b2cData);
+        renderCertificate(name, selectedTags, b2cData);
 
-        // 等待 Chart.js 渲染動畫完成 (給予緩衝)
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 600)); // 等待圖表渲染
 
-        // 3. 截圖 - 專業版 (Pro)
-        msg.innerText = "3. 截取專業評鑑表...";
-        const proCanvas = await html2canvas(document.getElementById('pro-form-area'), {
-            scale: 2, backgroundColor: "#ffffff"
-        });
-        const imgPro = proCanvas.toDataURL("image/png");
+        // 截圖
+        msg.innerText = "2. 繪製證書...";
+        const proCanvas = await html2canvas(document.getElementById('pro-form-area'), { scale: 1.5, backgroundColor: "#ffffff" });
+        const b2cCanvas = await html2canvas(document.getElementById('b2c-render-area'), { scale: 2 }); // 高畫質截圖
 
-        // 4. 截圖 - 零售版 (B2C)
-        msg.innerText = "4. 截取零售風味卡...";
-        const b2cCanvas = await html2canvas(document.getElementById('b2c-render-area'), {
-            scale: 2, backgroundColor: "#ffffff" // 強制白底
-        });
-        const imgB2C = b2cCanvas.toDataURL("image/png");
-
-        // 5. 傳送至後端
-        msg.innerText = "5. 資料上傳雲端...";
-        
+        // 上傳
+        msg.innerText = "3. 資料上傳中...";
         const payload = {
             evaluator: document.getElementById('evaluator').value,
             email: email,
             productName: name,
             scores: scores,
-            tags: document.getElementById('tags').value,
-            imagePro: imgPro,
-            imageB2C: imgB2C
+            tags: selectedTags.join(", "),
+            imagePro: proCanvas.toDataURL("image/png"),
+            imageB2C: b2cCanvas.toDataURL("image/png")
         };
 
         fetch(GOOGLE_SCRIPT_URL, {
@@ -218,28 +273,19 @@
             body: JSON.stringify(payload)
         })
         .then(() => {
-            msg.style.color = "#27ae60";
-            msg.innerText = "✅ 評鑑完成！雙版本圖卡已寄出。";
-            btn.innerText = "完成";
-            // 不恢復按鈕，避免重複提交
+            msg.innerText = "✅ 完成！請查收 Email。";
+            btn.innerText = "評鑑完成";
         })
         .catch(err => {
             console.error(err);
-            msg.innerText = "❌ 傳送失敗，請檢查網路或 Script";
+            msg.innerText = "❌ 失敗";
             btn.disabled = false;
         });
     }
 
-    // --- B2C 核心邏輯 ---
+    // B2C 轉譯公式
     function calculateB2C(s) {
-        // 公式驗證：
-        // Weight = Body*0.8 + Structure*0.2
-        // Brightness = Acidity*1.0
-        // Length = Sweetness*0.7 + Structure*0.3
-        // Complexity = Aroma*0.6 + Balance*0.4
-        
         const round = (num) => Math.round(num * 10) / 10;
-
         return {
             weight: round(s.body * 0.8 + s.structure * 0.2),
             brightness: round(s.acidity * 1.0),
@@ -250,58 +296,42 @@
 
     let b2cChartInstance = null;
 
-    function renderB2CView(name, tagsRaw, data) {
-        // 1. 設定文字
+    function renderCertificate(name, tags, data) {
         document.getElementById('b2c-name-display').innerText = name;
-        
-        // 2. 處理 Tags (取前三)
-        let tagsArr = tagsRaw.split(/[,，]/).map(t => t.trim()).filter(t => t !== "");
-        let displayTags = tagsArr.slice(0, 3).join(" ｜ ");
-        document.getElementById('b2c-tags-display').innerText = displayTags || "精選風味";
+        document.getElementById('b2c-tags-display').innerText = tags.join(" · ");
 
-        // 3. 繪製雷達圖
         const ctx = document.getElementById('b2cChart').getContext('2d');
-        
-        if (b2cChartInstance) b2cChartInstance.destroy(); // 清除舊圖
+        if (b2cChartInstance) b2cChartInstance.destroy();
 
         b2cChartInstance = new Chart(ctx, {
             type: 'radar',
             data: {
-                labels: [
-                    `重量感 ${data.weight}`, 
-                    `明亮度 ${data.brightness}`, 
-                    `餘韻 ${data.length}`, 
-                    `層次感 ${data.complexity}`
-                ],
+                labels: [`重量感\n${data.weight}`, `明亮度\n${data.brightness}`, `餘韻\n${data.length}`, `層次感\n${data.complexity}`],
                 datasets: [{
-                    label: 'Flavor Profile',
                     data: [data.weight, data.brightness, data.length, data.complexity],
-                    backgroundColor: 'rgba(230, 126, 34, 0.5)', // 橘色半透明
-                    borderColor: 'rgba(230, 126, 34, 1)',
-                    borderWidth: 3,
+                    backgroundColor: 'rgba(212, 175, 55, 0.4)', // 金色填滿
+                    borderColor: '#d4af37', // 金框
+                    borderWidth: 2,
                     pointBackgroundColor: '#fff',
-                    pointBorderColor: '#d35400',
-                    pointRadius: 5
+                    pointBorderColor: '#d4af37',
+                    pointRadius: 4
                 }]
             },
             options: {
                 scales: {
                     r: {
-                        angleLines: { color: '#eee' },
-                        grid: { color: '#eee' },
+                        angleLines: { color: 'rgba(0,0,0,0.05)' },
+                        grid: { color: 'rgba(0,0,0,0.05)' },
                         pointLabels: {
-                            font: { size: 16, weight: 'bold', family: 'Microsoft JhengHei' },
-                            color: '#2c3e50'
+                            font: { size: 14, family: 'Microsoft JhengHei', weight: 'bold' },
+                            color: '#555'
                         },
-                        suggestedMin: 0,
-                        suggestedMax: 5,
-                        ticks: { display: false, stepSize: 1 } // 隱藏刻度數字，保持簡潔
+                        suggestedMin: 0, suggestedMax: 5,
+                        ticks: { display: false, stepSize: 1 }
                     }
                 },
-                plugins: {
-                    legend: { display: false } // 隱藏圖例
-                },
-                animation: false // 關閉動畫以利截圖
+                plugins: { legend: { display: false } },
+                animation: false
             }
         });
     }
@@ -309,4 +339,3 @@
 
 </body>
 </html>
-
