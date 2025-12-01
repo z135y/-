@@ -2,377 +2,307 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🍵 茶葉 POS (庫存即時版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCA x TAGs 風味評鑑系統 v2.0</title>
+    <!-- 引入必要的庫 -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; margin: 0; background-color: #f2f2f7; display: flex; height: 100vh; overflow: hidden; }
+        /* 基礎樣式 */
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background: #f4f4f4; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { color: #2c3e50; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 15px; }
         
-        /* 左側商品區 */
-        .product-area { flex: 7; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px; align-content: start; }
-        .category-title { grid-column: 1 / -1; font-size: 14px; color: #888; font-weight: bold; margin-top: 15px; margin-bottom: 5px; border-left: 4px solid #2c3e50; padding-left: 8px; }
-        .category-title:first-child { margin-top: 0; }
-
-        .product-card { background: white; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; transition: 0.1s; border: 2px solid transparent; user-select: none; position: relative; }
-        .product-card:active { transform: scale(0.96); border-color: #27ae60; background: #e8f8f5; }
+        /* 表單樣式 */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        input[type="text"], input[type="email"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         
-        /* 缺貨樣式 */
-        .product-card.out-of-stock { opacity: 0.6; filter: grayscale(100%); pointer-events: none; background: #eee; }
-        .product-card.out-of-stock::after { content: "補貨中"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-10deg); color: #c0392b; font-weight: bold; border: 2px solid #c0392b; padding: 2px 8px; font-size: 14px; border-radius: 4px; background: rgba(255,255,255,0.8); }
+        /* 評分滑桿區 */
+        .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .score-item label { font-size: 14px; display: flex; justify-content: space-between; }
+        .score-val { color: #e67e22; font-weight: bold; }
+        input[type="range"] { width: 100%; }
 
-        .p-name { font-weight: bold; font-size: 15px; color: #2c3e50; margin: 5px 0; line-height: 1.3; }
-        .p-price { color: #e67e22; font-weight: bold; font-size: 14px; }
-        .p-stock { font-size: 11px; color: #888; margin-top: 4px; background: #f0f0f0; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-        .tag { width: 25px; height: 4px; border-radius: 2px; margin-bottom: 5px; margin: 0 auto; }
+        /* 按鈕 */
+        .btn-submit { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-submit:hover { background: #219150; }
+        .btn-submit:disabled { background: #ccc; cursor: wait; }
 
-        /* 右側結帳區 */
-        .sidebar { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; box-shadow: -5px 0 15px rgba(0,0,0,0.05); min-width: 320px; }
-        .cart-header { padding: 15px; background: #2c3e50; color: white; font-weight: bold; text-align: center; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-refresh { background: none; border: none; color: #aaa; cursor: pointer; font-size: 16px; transition: 0.3s; }
-        .btn-refresh:hover { color: white; transform: rotate(180deg); }
-
-        .cart-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
-        .item-info { flex: 1; }
-        .item-name { font-size: 14px; font-weight: bold; display: block; }
-        .item-qty { font-weight: bold; color: #fff; background: #2c3e50; padding: 2px 8px; border-radius: 10px; font-size: 13px; }
-        .btn-del { color: #e74c3c; cursor: pointer; padding: 5px; font-size: 18px; margin-left: 10px; }
-
-        /* 折扣與結帳 */
-        .discount-section { padding: 10px 15px; background: #fff; border-top: 1px dashed #ccc; }
-        .discount-row { display: flex; gap: 5px; flex-wrap: wrap; }
-        .disc-btn { flex: 1; min-width: 70px; padding: 8px 0; font-size: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 6px; cursor: pointer; color: #555; font-weight: bold; }
-        .disc-btn.active { background: #e74c3c; color: white; border-color: #e74c3c; }
-
-        .checkout-section { padding: 15px; background: #f8f9fa; border-top: 1px solid #ddd; }
-        .total-row { display: flex; justify-content: space-between; align-items: center; font-size: 26px; font-weight: 800; color: #2c3e50; margin-top: 5px; margin-bottom: 10px; }
-        .price-row { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 3px; }
-        .strike { text-decoration: line-through; color: #999; }
-        .discount-text { color: #e74c3c; font-weight: bold; }
+        /* --- B2C 卡片樣式 (隱藏生成區) --- */
+        /* 使用 absolute positioning 移出視窗外，但保持渲染狀態供 html2canvas 截圖 */
+        #b2c-render-area { 
+            position: absolute; left: -9999px; top: 0; 
+            width: 400px; height: 500px; /* 4:5 比例 */
+            background: #fff;
+            font-family: 'Microsoft JhengHei', sans-serif;
+            border: 1px solid #ddd; /* 截圖時不會有邊框，因為我們會截內容 */
+        }
         
-        .payment-methods { display: flex; gap: 8px; margin-bottom: 10px; }
-        .pay-btn { flex: 1; padding: 10px 0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; text-align: center; font-weight: bold; font-size: 14px; background: white; }
-        .pay-btn.active { background: #2c3e50; color: white; border-color: #2c3e50; }
+        /* B2C 卡片設計 (Poster Style) */
+        .b2c-card {
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #ffffff 0%, #f3f3f3 100%);
+            display: flex; flex-direction: column;
+            padding: 25px; box-sizing: border-box;
+            position: relative;
+            color: #333;
+        }
+        .b2c-header { text-align: center; margin-bottom: 10px; }
+        .b2c-product { font-size: 24px; font-weight: 900; color: #000; letter-spacing: 1px; margin-bottom: 5px; border-bottom: 3px solid #000; display: inline-block; padding-bottom: 5px; }
+        .b2c-tags { font-size: 14px; color: #e67e22; font-weight: bold; margin-top: 5px; }
+        
+        .b2c-chart-container { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
+        
+        .b2c-footer { text-align: center; font-size: 12px; color: #888; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+        .b2c-slogan { font-weight: bold; color: #2c3e50; font-size: 14px; margin-bottom: 3px; }
 
-        .btn-checkout { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        .btn-checkout:disabled { background: #95a5a6; cursor: not-allowed; }
-        .btn-clear { width: 100%; margin-top: 8px; padding: 8px; background: transparent; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 8px; cursor: pointer; font-size: 14px; }
-
-        @media (max-width: 768px) { body { flex-direction: column; } .product-area { flex: 1.5; } .sidebar { flex: 1; } }
+        .status-msg { text-align: center; margin-top: 10px; color: #e74c3c; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
-<div class="product-area" id="productGrid"></div>
-
-<div class="sidebar">
-    <div class="cart-header">
-        <span>🛒 購物車</span>
-        <button class="btn-refresh" onclick="fetchStock()" title="重整庫存">🔄</button>
-    </div>
-    <div class="cart-list" id="cartList">
-        <div style="text-align:center; color:#999; margin-top:50px;">載入中...</div>
-    </div>
-
-    <div class="discount-section">
-        <div class="discount-row">
-            <button class="disc-btn active" onclick="setDiscount('none', 0)">無</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.95)">95折</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.9)">9折</button>
-            <button class="disc-btn" onclick="setDiscount('percent', 0.85)">85折</button>
-            <button class="disc-btn" onclick="setDiscount('minus', 50)">-50</button>
+    <!-- 1. 輸入介面 (SCA 專業版) -->
+    <div class="container" id="pro-form-area">
+        <h1>☕ SCA x TAGs 專業評鑑</h1>
+        
+        <div class="form-group">
+            <label>評鑑者 (Evaluator)</label>
+            <input type="text" id="evaluator" placeholder="您的姓名">
         </div>
-    </div>
+        <div class="form-group">
+            <label>Email (接收報告用)</label>
+            <input type="email" id="email" placeholder="name@example.com">
+        </div>
+        <div class="form-group">
+            <label>樣品名稱 (Product Name)</label>
+            <input type="text" id="productName" value="特選紅烏龍 (批號2025-A)">
+        </div>
 
-    <div class="checkout-section">
-        <div id="priceDetails">
-            <div class="total-row">
-                <span>Total</span>
-                <span id="finalAmount">$0</span>
+        <!-- 6 軸評分 (1.0 - 5.0) -->
+        <label>SCA 評分 (1.0 - 5.0)</label>
+        <div class="score-grid">
+            <div class="score-item">
+                <label>Aroma (乾/濕香) <span class="score-val" id="val-aroma">3.0</span></label>
+                <input type="range" id="aroma" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <div class="score-item">
+                <label>Flavor (風味) <span class="score-val" id="val-flavor">3.0</span></label>
+                <input type="range" id="flavor" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <div class="score-item">
+                <label>Aftertaste (餘韻) <span class="score-val" id="val-aftertaste">3.0</span></label>
+                <input type="range" id="aftertaste" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <div class="score-item">
+                <label>Acidity (酸質) <span class="score-val" id="val-acidity">3.0</span></label>
+                <input type="range" id="acidity" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <div class="score-item">
+                <label>Body (醇厚度) <span class="score-val" id="val-body">3.0</span></label>
+                <input type="range" id="body" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <div class="score-item">
+                <label>Balance (平衡) <span class="score-val" id="val-balance">3.0</span></label>
+                <input type="range" id="balance" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <!-- Structure 在原 SCA 表中通常整合在 Flavor 或 Body，這裡為了配合 B2C 公式，我們增加一個隱藏參數或讓用戶輸入，假設為了演示，我們增加 Structure 欄位 -->
+             <div class="score-item" style="grid-column: 1 / -1; border-top:1px dashed #ccc; padding-top:10px;">
+                <label>Structure (結構感 - 供B2C運算用) <span class="score-val" id="val-structure">3.0</span></label>
+                <input type="range" id="structure" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
+            </div>
+            <div class="score-item" style="grid-column: 1 / -1;">
+                <label>Sweetness (甜度 - 供B2C運算用) <span class="score-val" id="val-sweetness">3.0</span></label>
+                <input type="range" id="sweetness" min="1" max="5" step="0.1" value="3.0" oninput="updateVal(this)">
             </div>
         </div>
 
-        <div class="payment-methods">
-            <div class="pay-btn active" onclick="setMethod(this, '現金')">💵 現金</div>
-            <div class="pay-btn" onclick="setMethod(this, 'LinePay')">📲 LinePay</div>
-            <div class="pay-btn" onclick="setMethod(this, '信用卡')">💳 刷卡</div>
+        <div class="form-group">
+            <label>風味聯想 (TAGs) - 請用逗號分隔，系統將抓取前 3 個</label>
+            <input type="text" id="tags" value="🍯 蜂蜜, 🍎 熟果, 🪵 檜木, 🌼 野薑花" placeholder="例如: 花香, 蜂蜜, 堅果">
         </div>
 
-        <button class="btn-checkout" id="btnCheckout" onclick="submitOrder()">結帳收款</button>
-        <button class="btn-clear" onclick="clearCart()">清空重來</button>
+        <button class="btn-submit" id="btnSubmit" onclick="processEvaluation()">📤 上傳資料並寄送雙版本圖卡</button>
+        <div id="statusMsg" class="status-msg"></div>
     </div>
-</div>
+
+    <!-- 2. B2C 卡片生成區 (隱藏) -->
+    <div id="b2c-render-area">
+        <div class="b2c-card" id="b2cCard">
+            <div class="b2c-header">
+                <div class="b2c-product" id="b2c-name-display">PRODUCT NAME</div>
+                <div class="b2c-tags" id="b2c-tags-display">TAG 1 | TAG 2 | TAG 3</div>
+            </div>
+            <div class="b2c-chart-container">
+                <canvas id="b2cChart"></canvas>
+            </div>
+            <div class="b2c-footer">
+                <div class="b2c-slogan">數據化呈現，風味看得見</div>
+                <div>Powered by SCA x TAGs System</div>
+            </div>
+        </div>
+    </div>
 
 <script>
-    // ==========================================
-    // ✅ 已填入您的 POS 專用 Script 網址
-    // ==========================================
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz9s2NUQupy7plDN-sRqQdbULRV5T5LE8xE4SYYUE_MR2vqT2O-bt1R5cwnOvhaYS5MYA/exec"; 
-    // ==========================================
+    const GOOGLE_SCRIPT_URL = "您的_GOOGLE_SCRIPT_URL"; // ⚠️ 請填入後端網址
 
-    const categories = [
-        {
-            title: "📦 茶葉與禮盒 (Retail)",
-            items: [
-                { id: 1, name: '文山包種茶', price: 250, color: '#27ae60', type: '茶葉', stock: 0 },
-                { id: 2, name: '蜜香紅茶', price: 300, color: '#e74c3c', type: '茶葉', stock: 0 },
-                { id: 3, name: '紅烏龍', price: 450, color: '#d35400', type: '茶葉', stock: 0 },
-                { id: 4, name: '凍頂烏龍', price: 350, color: '#f1c40f', type: '茶葉', stock: 0 },
-                { id: 13, name: '焙香茶穗', price: 100, color: '#8d6e63', type: '茶葉', stock: 0 }, // ✨ 新增商品
-                { id: 5, name: '茶山漫遊禮盒', price: 1100, color: '#8e44ad', type: '禮盒', stock: 0 },
-                { id: 6, name: '盒裝茶包(10入)', price: 250, color: '#3498db', type: '茶包', stock: 0 }
-            ]
-        },
-        {
-            title: "🥤 現萃茶飲 (To Go)",
-            items: [
-                { id: 7, name: '現萃-文山包種', price: 60, color: '#2ecc71', type: '飲品', stock: 0 },
-                { id: 8, name: '現萃-蜜香紅茶', price: 60, color: '#ff7675', type: '飲品', stock: 0 },
-                { id: 9, name: '現萃-紅烏龍', price: 60, color: '#e67e22', type: '飲品', stock: 0 },
-                { id: 10, name: '現萃-凍頂烏龍', price: 60, color: '#f1c40f', type: '飲品', stock: 0 },
-                { id: 11, name: '冷泡茶 (瓶)', price: 80, color: '#1abc9c', type: '飲品', stock: 0 }
-            ]
-        },
-        {
-            title: "🛍️ 其他",
-            items: [
-                { id: 12, name: '提袋/包材', price: 10, color: '#95a5a6', type: '雜項', stock: 0 }
-            ]
-        }
-    ];
-
-    let cart = {};
-    let currentMethod = '現金';
-    let discountType = 'none';
-    let discountValue = 0;
-
-    // 啟動時先抓庫存
-    window.onload = () => {
-        fetchStock();
-    };
-
-    // 從 Google Sheet 抓取庫存
-    function fetchStock() {
-        const grid = document.getElementById('cartList');
-        // 如果網址還沒填，先畫出預設商品
-        if(GOOGLE_SCRIPT_URL.includes("您的")) { 
-            grid.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">⚠️ 未設定後端網址<br>目前顯示預設庫存</div>';
-            renderProducts(); 
-            return; 
-        }
-
-        // 顯示載入中
-        const checkoutBtn = document.getElementById('btnCheckout');
-        checkoutBtn.innerText = "庫存同步中...";
-        checkoutBtn.disabled = true;
-
-        fetch(GOOGLE_SCRIPT_URL)
-        .then(res => res.json())
-        .then(stockData => {
-            // 更新本地庫存數據
-            categories.forEach(cat => {
-                cat.items.forEach(item => {
-                    if (stockData[item.id] !== undefined) {
-                        item.stock = stockData[item.id];
-                    }
-                });
-            });
-            renderProducts(); // 重新渲染商品區
-            updateCartUI();   // 更新購物車顯示
-            checkoutBtn.innerText = "結帳收款";
-            checkoutBtn.disabled = false;
-        })
-        .catch(err => {
-            console.error("Stock fetch failed", err);
-            grid.innerHTML = '<div style="text-align:center; color:red; margin-top:50px;">⚠️ 庫存同步失敗<br>請檢查網路或 Script</div>';
-            renderProducts();
-        });
+    function updateVal(input) {
+        document.getElementById('val-' + input.id).innerText = input.value;
     }
 
-    function renderProducts() {
-        const grid = document.getElementById('productGrid');
-        let html = '';
+    async function processEvaluation() {
+        const btn = document.getElementById('btnSubmit');
+        const msg = document.getElementById('statusMsg');
         
-        categories.forEach(cat => {
-            html += `<div class="category-title">${cat.title}</div>`;
-            cat.items.forEach(p => {
-                // 判斷庫存
-                let isOutOfStock = p.stock <= 0;
-                let stockClass = isOutOfStock ? 'product-card out-of-stock' : 'product-card';
-                let stockText = isOutOfStock ? '補貨中' : `庫存: ${p.stock}`;
-                let onClick = isOutOfStock ? '' : `onclick="addToCart(${p.id})"`;
+        // 0. 基礎驗證
+        const email = document.getElementById('email').value;
+        const name = document.getElementById('productName').value;
+        if(!email || !name) { alert("請填寫 Email 與 品名"); return; }
 
-                html += `
-                    <div class="${stockClass}" ${onClick}>
-                        <div class="tag" style="background:${p.color}"></div>
-                        <div class="p-name">${p.name}</div>
-                        <div class="p-price">$${p.price}</div>
-                        <div class="p-stock">${stockText}</div>
-                    </div>
-                `;
-            });
-        });
-        grid.innerHTML = html;
-    }
-
-    function findProduct(id) {
-        for (let cat of categories) {
-            for (let item of cat.items) {
-                if (item.id === id) return item;
-            }
-        }
-        return null;
-    }
-
-    function addToCart(id) {
-        const product = findProduct(id);
-        
-        // 檢查庫存 (如果是連線模式)
-        if(!GOOGLE_SCRIPT_URL.includes("您的")) {
-            let currentQty = cart[id] ? cart[id].qty : 0;
-            if (currentQty + 1 > product.stock) {
-                alert(`❌ 庫存不足！\n目前庫存僅剩：${product.stock}`);
-                return;
-            }
-        }
-
-        cart[id] = cart[id] ? { ...product, qty: cart[id].qty + 1 } : { ...product, qty: 1 };
-        updateCartUI();
-    }
-
-    function removeFromCart(id) {
-        if (cart[id]) {
-            cart[id].qty -= 1;
-            if (cart[id].qty <= 0) delete cart[id];
-        }
-        updateCartUI();
-    }
-
-    function setDiscount(type, value) {
-        discountType = type;
-        discountValue = value;
-        document.querySelectorAll('.disc-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if(type === 'none' && btn.innerText === '無') btn.classList.add('active');
-            if(type === 'percent' && value === 0.95 && btn.innerText.includes('95')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.9 && btn.innerText.includes('9折')) btn.classList.add('active');
-            if(type === 'percent' && value === 0.85 && btn.innerText.includes('85')) btn.classList.add('active');
-            if(type === 'minus' && btn.innerText.includes('-50')) btn.classList.add('active');
-        });
-        updateCartUI();
-    }
-
-    function updateCartUI() {
-        const list = document.getElementById('cartList');
-        const priceDetails = document.getElementById('priceDetails');
-        const items = Object.values(cart);
-        
-        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let finalTotal = originalTotal;
-        let discountAmount = 0;
-
-        if (discountType === 'percent') {
-            finalTotal = Math.round(originalTotal * discountValue);
-            discountAmount = originalTotal - finalTotal;
-        } else if (discountType === 'minus') {
-            finalTotal = originalTotal - discountValue;
-            if(finalTotal < 0) finalTotal = 0;
-            discountAmount = discountValue;
-        }
-
-        if (items.length === 0) {
-            list.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">尚未點餐</div>';
-            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$0</span></div>`;
-            return;
-        }
-
-        list.innerHTML = items.map(item => `
-            <div class="cart-item">
-                <div class="item-info">
-                    <span class="item-name">${item.name}</span>
-                    <span class="item-spec">${item.type}</span>
-                </div>
-                <span class="item-qty">${item.qty}</span>
-                <div class="btn-del" onclick="removeFromCart(${item.id})">×</div>
-            </div>
-        `).join('');
-
-        if (discountType !== 'none' && originalTotal > 0) {
-            priceDetails.innerHTML = `
-                <div class="price-row"><span>原價</span><span class="strike">$${originalTotal}</span></div>
-                <div class="price-row"><span class="discount-text">折扣</span><span class="discount-text">-$${discountAmount}</span></div>
-                <div class="total-row"><span>Total</span><span>$${finalTotal}</span></div>
-            `;
-        } else {
-            priceDetails.innerHTML = `<div class="total-row"><span>Total</span><span>$${originalTotal}</span></div>`;
-        }
-    }
-
-    function setMethod(btn, method) {
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentMethod = method;
-    }
-
-    function clearCart() {
-        cart = {};
-        setDiscount('none', 0);
-        updateCartUI();
-    }
-
-    function submitOrder() {
-        const items = Object.values(cart);
-        if (items.length === 0) { alert("購物車是空的！"); return; }
-
-        if(GOOGLE_SCRIPT_URL.includes("您的")) { alert("請設定 Script 網址！"); return; }
-
-        const btn = document.getElementById('btnCheckout');
-        const originalText = btn.innerText;
         btn.disabled = true;
-        btn.innerText = "扣庫存中...";
+        btn.innerText = "🔄 正在進行 B2C 轉譯運算...";
+        msg.style.display = 'block';
+        msg.innerText = "1. 讀取專業數據...";
 
-        const cartData = items.map(i => ({ id: i.id, qty: i.qty }));
-        let originalTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        let finalTotal = originalTotal;
-        let discountAmount = 0;
+        // 1. 取得原始分數
+        const scores = {
+            aroma: parseFloat(document.getElementById('aroma').value),
+            flavor: parseFloat(document.getElementById('flavor').value),
+            aftertaste: parseFloat(document.getElementById('aftertaste').value),
+            acidity: parseFloat(document.getElementById('acidity').value),
+            body: parseFloat(document.getElementById('body').value),
+            balance: parseFloat(document.getElementById('balance').value),
+            structure: parseFloat(document.getElementById('structure').value),
+            sweetness: parseFloat(document.getElementById('sweetness').value)
+        };
 
-        if (discountType === 'percent') {
-            finalTotal = Math.round(originalTotal * discountValue);
-            discountAmount = originalTotal - finalTotal;
-        } else if (discountType === 'minus') {
-            finalTotal = originalTotal - discountValue;
-            if(finalTotal < 0) finalTotal = 0;
-            discountAmount = discountValue;
-        }
+        // 2. 執行 B2C 轉譯邏輯 (Translation Logic)
+        msg.innerText = "2. 生成 B2C 風味識別卡...";
+        const b2cData = calculateB2C(scores);
+        renderB2CView(name, document.getElementById('tags').value, b2cData);
 
-        const itemsString = items.map(i => `[${i.type}]${i.name}x${i.qty}`).join(', ');
+        // 等待 Chart.js 渲染動畫完成 (給予緩衝)
+        await new Promise(r => setTimeout(r, 500));
 
-        const data = {
-            itemsString: itemsString,
-            cartItems: cartData,
-            originalTotal: originalTotal,
-            discount: discountAmount,
-            finalTotal: finalTotal,
-            method: currentMethod,
-            note: discountType !== 'none' ? `折扣: ${discountType}` : ''
+        // 3. 截圖 - 專業版 (Pro)
+        msg.innerText = "3. 截取專業評鑑表...";
+        const proCanvas = await html2canvas(document.getElementById('pro-form-area'), {
+            scale: 2, backgroundColor: "#ffffff"
+        });
+        const imgPro = proCanvas.toDataURL("image/png");
+
+        // 4. 截圖 - 零售版 (B2C)
+        msg.innerText = "4. 截取零售風味卡...";
+        const b2cCanvas = await html2canvas(document.getElementById('b2c-render-area'), {
+            scale: 2, backgroundColor: "#ffffff" // 強制白底
+        });
+        const imgB2C = b2cCanvas.toDataURL("image/png");
+
+        // 5. 傳送至後端
+        msg.innerText = "5. 資料上傳雲端...";
+        
+        const payload = {
+            evaluator: document.getElementById('evaluator').value,
+            email: email,
+            productName: name,
+            scores: scores,
+            tags: document.getElementById('tags').value,
+            imagePro: imgPro,
+            imageB2C: imgB2C
         };
 
         fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify(payload)
         })
         .then(() => {
-            alert(`✅ 結帳完成！\n實收：$${finalTotal}`);
-            clearCart();
-            fetchStock(); // 重抓庫存
-            btn.disabled = false;
-            btn.innerText = originalText;
+            msg.style.color = "#27ae60";
+            msg.innerText = "✅ 評鑑完成！雙版本圖卡已寄出。";
+            btn.innerText = "完成";
+            // 不恢復按鈕，避免重複提交
         })
         .catch(err => {
-            alert("❌ 連線錯誤：" + err);
+            console.error(err);
+            msg.innerText = "❌ 傳送失敗，請檢查網路或 Script";
             btn.disabled = false;
-            btn.innerText = originalText;
+        });
+    }
+
+    // --- B2C 核心邏輯 ---
+    function calculateB2C(s) {
+        // 公式驗證：
+        // Weight = Body*0.8 + Structure*0.2
+        // Brightness = Acidity*1.0
+        // Length = Sweetness*0.7 + Structure*0.3
+        // Complexity = Aroma*0.6 + Balance*0.4
+        
+        const round = (num) => Math.round(num * 10) / 10;
+
+        return {
+            weight: round(s.body * 0.8 + s.structure * 0.2),
+            brightness: round(s.acidity * 1.0),
+            length: round(s.sweetness * 0.7 + s.structure * 0.3),
+            complexity: round(s.aroma * 0.6 + s.balance * 0.4)
+        };
+    }
+
+    let b2cChartInstance = null;
+
+    function renderB2CView(name, tagsRaw, data) {
+        // 1. 設定文字
+        document.getElementById('b2c-name-display').innerText = name;
+        
+        // 2. 處理 Tags (取前三)
+        let tagsArr = tagsRaw.split(/[,，]/).map(t => t.trim()).filter(t => t !== "");
+        let displayTags = tagsArr.slice(0, 3).join(" ｜ ");
+        document.getElementById('b2c-tags-display').innerText = displayTags || "精選風味";
+
+        // 3. 繪製雷達圖
+        const ctx = document.getElementById('b2cChart').getContext('2d');
+        
+        if (b2cChartInstance) b2cChartInstance.destroy(); // 清除舊圖
+
+        b2cChartInstance = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: [
+                    `重量感 ${data.weight}`, 
+                    `明亮度 ${data.brightness}`, 
+                    `餘韻 ${data.length}`, 
+                    `層次感 ${data.complexity}`
+                ],
+                datasets: [{
+                    label: 'Flavor Profile',
+                    data: [data.weight, data.brightness, data.length, data.complexity],
+                    backgroundColor: 'rgba(230, 126, 34, 0.5)', // 橘色半透明
+                    borderColor: 'rgba(230, 126, 34, 1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#d35400',
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        angleLines: { color: '#eee' },
+                        grid: { color: '#eee' },
+                        pointLabels: {
+                            font: { size: 16, weight: 'bold', family: 'Microsoft JhengHei' },
+                            color: '#2c3e50'
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 5,
+                        ticks: { display: false, stepSize: 1 } // 隱藏刻度數字，保持簡潔
+                    }
+                },
+                plugins: {
+                    legend: { display: false } // 隱藏圖例
+                },
+                animation: false // 關閉動畫以利截圖
+            }
         });
     }
 </script>
